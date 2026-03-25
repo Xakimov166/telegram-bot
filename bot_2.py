@@ -7,11 +7,11 @@ from openai import OpenAI
 from docx import Document
 import os
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # 🔑 ключи
-TELEGRAM_TOKEN = "8623977303:AAFp9YRJzHzfIYCO2c19ZELfUxN-HwMcWM4"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
