@@ -1,5 +1,6 @@
 import asyncio
 import os
+import base64
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
@@ -15,7 +16,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 print("TELEGRAM_TOKEN =", TELEGRAM_TOKEN)
 print("OPENAI_API_KEY =", OPENAI_API_KEY)
 
-# ❗ жёсткая проверка
+# ❗ проверка
 if not TELEGRAM_TOKEN:
     raise ValueError("❌ TELEGRAM_TOKEN не найден")
 
@@ -83,52 +84,48 @@ async def handle(message: types.Message):
         system_prompt = "Faqat o'zbek tilida javob ber."
 
     # 📸 ФОТО
-   import base64
+    if message.photo:
+        try:
+            print("📸 PHOTO")
 
-if message.photo:
-    try:
-        print("📸 PHOTO")
+            photo = message.photo[-1]
+            file = await bot.get_file(photo.file_id)
 
-        photo = message.photo[-1]
-        file = await bot.get_file(photo.file_id)
+            # скачать
+            local_path = f"downloads/{photo.file_id}.jpg"
+            await bot.download_file(file.file_path, local_path)
 
-        # скачать файл
-        file_path = file.file_path
-        local_path = f"downloads/{photo.file_id}.jpg"
-        await bot.download_file(file_path, local_path)
+            # base64
+            with open(local_path, "rb") as f:
+                base64_image = base64.b64encode(f.read()).decode("utf-8")
 
-        # конвертировать в base64
-        with open(local_path, "rb") as f:
-            image_bytes = f.read()
-            base64_image = base64.b64encode(image_bytes).decode("utf-8")
-
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Опиши изображение"},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "Опиши изображение"},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{base64_image}"
+                                },
                             },
-                        },
-                    ],
-                },
-            ],
-        )
+                        ],
+                    },
+                ],
+            )
 
-        reply = response.choices[0].message.content or "Хатолик 😢"
-        await message.answer(reply)
+            reply = response.choices[0].message.content or "Ошибка 😢"
+            await message.answer(reply)
 
-    except Exception as e:
-        print("❌ PHOTO ERROR:", e)
-        await message.answer("Ошибка фото 😢")
+        except Exception as e:
+            print("❌ PHOTO ERROR:", e)
+            await message.answer("Ошибка фото 😢")
 
-    return
+        return
 
     # 📄 ДОКУМЕНТ
     if message.document:
@@ -160,11 +157,12 @@ if message.photo:
         except Exception as e:
             print("❌ DOC ERROR:", e)
             await message.answer("Ошибка документа 😢")
+
         return
 
     # 💬 ТЕКСТ
     try:
-        print("💬 TEXT запрос в OpenAI")
+        print("💬 TEXT → OpenAI")
 
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -189,9 +187,13 @@ if message.photo:
 async def main():
     print("🤖 Бот запущен...")
 
-    await bot.delete_webhook(drop_pending_updates=True)  # 🔥 КЛЮЧЕВОЕ
+    # 🔥 ОБЯЗАТЕЛЬНО
+    await bot.delete_webhook(drop_pending_updates=True)
 
     await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 if __name__ == "__main__":
     asyncio.run(main())
