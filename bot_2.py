@@ -6,18 +6,21 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from openai import OpenAI
 from docx import Document
 
+print("🚀 BOT STARTED")
+
 # 🔑 ключи
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# ❗ проверка ключей
+print("TELEGRAM_TOKEN =", TELEGRAM_TOKEN)
+print("OPENAI_API_KEY =", OPENAI_API_KEY)
+
+# ❗ жёсткая проверка
 if not TELEGRAM_TOKEN:
-    raise ValueError("❌ Нет TELEGRAM_TOKEN")
+    raise ValueError("❌ TELEGRAM_TOKEN не найден")
 
 if not OPENAI_API_KEY:
-    raise ValueError("❌ Нет OPENAI_API_KEY")
-
-print("BOT STARTED")
+    raise ValueError("❌ OPENAI_API_KEY не найден")
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
@@ -42,11 +45,14 @@ kb = ReplyKeyboardMarkup(
 # старт
 @dp.message(Command("start"))
 async def start(message: types.Message):
+    print("📩 /start")
     await message.answer("Выберите язык 👇", reply_markup=kb)
 
 # основной обработчик
 @dp.message()
 async def handle(message: types.Message):
+    print("📩 MESSAGE:", message.text)
+
     user_id = message.from_user.id
 
     # выбор языка
@@ -79,6 +85,8 @@ async def handle(message: types.Message):
     # 📸 ФОТО
     if message.photo:
         try:
+            print("📸 PHOTO")
+
             photo = message.photo[-1]
             file = await bot.get_file(photo.file_id)
 
@@ -102,13 +110,15 @@ async def handle(message: types.Message):
             await message.answer(reply)
 
         except Exception as e:
-            print("PHOTO ERROR:", e)
+            print("❌ PHOTO ERROR:", e)
             await message.answer("Ошибка фото 😢")
         return
 
     # 📄 ДОКУМЕНТ
     if message.document:
         try:
+            print("📄 DOC")
+
             file = await bot.get_file(message.document.file_id)
             path = f"downloads/{message.document.file_name}"
             await bot.download_file(file.file_path, path)
@@ -132,12 +142,14 @@ async def handle(message: types.Message):
             await message.answer(reply)
 
         except Exception as e:
-            print("DOC ERROR:", e)
+            print("❌ DOC ERROR:", e)
             await message.answer("Ошибка документа 😢")
         return
 
     # 💬 ТЕКСТ
     try:
+        print("💬 TEXT запрос в OpenAI")
+
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -146,11 +158,11 @@ async def handle(message: types.Message):
             ]
         )
 
-        reply = response.choices[0].message.content or "Ошибка 😢"
+        reply = response.choices[0].message.content or "Пустой ответ 😢"
         await message.answer(reply)
 
     except Exception as e:
-        print("TEXT ERROR:", e)
+        print("❌ TEXT ERROR:", e)
 
         if "quota" in str(e):
             await message.answer("❌ Нет баланса OpenAI")
@@ -159,7 +171,7 @@ async def handle(message: types.Message):
 
 # запуск
 async def main():
-    print("Бот запущен 🚀")
+    print("🤖 Бот запущен и слушает...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
