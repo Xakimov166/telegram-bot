@@ -4,7 +4,6 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from openai import OpenAI
-from docx import Document
 
 print("BOT STARTED")
 
@@ -19,9 +18,6 @@ bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
 
 client = OpenAI(api_key=OPENAI_API_KEY)
-
-# 📁 папка
-os.makedirs("downloads", exist_ok=True)
 
 # 🌍 языки
 user_languages = {}
@@ -88,16 +84,6 @@ async def handle(message: types.Message):
             await message.answer(reply)
             return
 
-        # 📸 ФОТО
-        if message.photo:
-            await message.answer("Фото получено 📸 (обработка пока отключена)")
-            return
-
-        # 📄 ДОКУМЕНТ
-        if message.document:
-            await message.answer("Документ получен 📄 (обработка пока отключена)")
-            return
-
     except Exception as e:
         print("ERROR:", e)
         await message.answer(f"Ошибка: {e}")
@@ -105,6 +91,10 @@ async def handle(message: types.Message):
 # запуск
 async def main():
     print("Бот запущен 🚀")
+
+    # ❗ ВАЖНО — убирает webhook
+    await bot.delete_webhook(drop_pending_updates=True)
+
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
