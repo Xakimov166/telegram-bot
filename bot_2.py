@@ -5,22 +5,28 @@ from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from openai import OpenAI
 from docx import Document
-import os
 
-print("BOT STARTED")
 # 🔑 ключи
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# ❗ проверка ключей
+if not TELEGRAM_TOKEN:
+    raise ValueError("❌ Нет TELEGRAM_TOKEN")
+
+if not OPENAI_API_KEY:
+    raise ValueError("❌ Нет OPENAI_API_KEY")
+
+print("BOT STARTED")
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# 📁 папка для файлов
+# 📁 папка
 os.makedirs("downloads", exist_ok=True)
 
-# 🌍 языки пользователей
+# 🌍 язык
 user_languages = {}
 
 # клавиатура
@@ -43,7 +49,7 @@ async def start(message: types.Message):
 async def handle(message: types.Message):
     user_id = message.from_user.id
 
-    # 🌍 выбор языка
+    # выбор языка
     if message.text in ["Русский 🇷🇺", "English 🇬🇧", "O'zbek 🇺🇿"]:
         if "Русский" in message.text:
             user_languages[user_id] = "ru"
@@ -67,20 +73,19 @@ async def handle(message: types.Message):
         system_prompt = "Отвечай только на русском языке."
     elif lang == "en":
         system_prompt = "Answer only in English."
-    elif lang == "uz":
+    else:
         system_prompt = "Faqat o'zbek tilida javob ber."
 
     # 📸 ФОТО
     if message.photo:
-        photo = message.photo[-1]
-        file = await bot.get_file(photo.file_id)
-        file_path = file.file_path
-
-        image_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_path}"
-
         try:
+            photo = message.photo[-1]
+            file = await bot.get_file(photo.file_id)
+
+            image_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file.file_path}"
+
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {
@@ -93,66 +98,59 @@ async def handle(message: types.Message):
                 ]
             )
 
-            reply = response.choices[0].message.content
+            reply = response.choices[0].message.content or "Ошибка 😢"
             await message.answer(reply)
 
         except Exception as e:
-            print(e)
+            print("PHOTO ERROR:", e)
             await message.answer("Ошибка фото 😢")
-
         return
 
-    # 📄 ДОКУМЕНТЫ
+    # 📄 ДОКУМЕНТ
     if message.document:
-        file = await bot.get_file(message.document.file_id)
-        file_path = file.file_path
-        file_name = message.document.file_name
-
-        local_path = f"downloads/{file_name}"
-        await bot.download_file(file_path, local_path)
-
         try:
-            if file_name.endswith(".docx"):
-                doc = Document(local_path)
-                text = "\n".join([p.text for p in doc.paragraphs])
-            else:
-                await message.answer("Пока только .docx 😢")
+            file = await bot.get_file(message.document.file_id)
+            path = f"downloads/{message.document.file_name}"
+            await bot.download_file(file.file_path, path)
+
+            if not path.endswith(".docx"):
+                await message.answer("Только .docx 😢")
                 return
 
+            doc = Document(path)
+            text = "\n".join([p.text for p in doc.paragraphs])
+
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Кратко объясни:\n{text[:3000]}"}
+                    {"role": "user", "content": text[:3000]}
                 ]
             )
 
-            reply = response.choices[0].message.content
+            reply = response.choices[0].message.content or "Ошибка 😢"
             await message.answer(reply)
 
         except Exception as e:
-            print(e)
+            print("DOC ERROR:", e)
             await message.answer("Ошибка документа 😢")
-
         return
 
     # 💬 ТЕКСТ
-    user_text = message.text
-
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_text}
+                {"role": "user", "content": message.text}
             ]
         )
 
-        reply = response.choices[0].message.content
+        reply = response.choices[0].message.content or "Ошибка 😢"
         await message.answer(reply)
 
     except Exception as e:
-        print(e)
+        print("TEXT ERROR:", e)
 
         if "quota" in str(e):
             await message.answer("❌ Нет баланса OpenAI")
