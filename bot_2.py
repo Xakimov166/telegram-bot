@@ -83,36 +83,52 @@ async def handle(message: types.Message):
         system_prompt = "Faqat o'zbek tilida javob ber."
 
     # 📸 ФОТО
-    if message.photo:
-        try:
-            print("📸 PHOTO")
+   import base64
 
-            photo = message.photo[-1]
-            file = await bot.get_file(photo.file_id)
+if message.photo:
+    try:
+        print("📸 PHOTO")
 
-            image_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file.file_path}"
+        photo = message.photo[-1]
+        file = await bot.get_file(photo.file_id)
 
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "Опиши изображение"},
-                            {"type": "image_url", "image_url": {"url": image_url}}
-                        ]
-                    }
-                ]
-            )
+        # скачать файл
+        file_path = file.file_path
+        local_path = f"downloads/{photo.file_id}.jpg"
+        await bot.download_file(file_path, local_path)
 
-            reply = response.choices[0].message.content or "Ошибка 😢"
-            await message.answer(reply)
+        # конвертировать в base64
+        with open(local_path, "rb") as f:
+            image_bytes = f.read()
+            base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-        except Exception as e:
-            print("❌ PHOTO ERROR:", e)
-            await message.answer("Ошибка фото 😢")
-        return
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Опиши изображение"},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            },
+                        },
+                    ],
+                },
+            ],
+        )
+
+        reply = response.choices[0].message.content or "Хатолик 😢"
+        await message.answer(reply)
+
+    except Exception as e:
+        print("❌ PHOTO ERROR:", e)
+        await message.answer("Ошибка фото 😢")
+
+    return
 
     # 📄 ДОКУМЕНТ
     if message.document:
