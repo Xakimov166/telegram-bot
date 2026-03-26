@@ -171,7 +171,10 @@ async def handle(message: types.Message):
 
 # запуск
 async def main():
-    print("🤖 Бот запущен и слушает...")
+    print("🤖 Бот запущен...")
+
+    await bot.delete_webhook(drop_pending_updates=True)  # 🔥 КЛЮЧЕВОЕ
+
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
